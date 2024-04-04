@@ -1,28 +1,39 @@
 {
-  "name": "common-restful-package",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
+  "name": "@lst97/common-restful",
+  "version": "0.1.0-alpha.2",
+  "description": "This is a DEVELOPMENT package. React restful api package depends on Axios. This include some error handling and response structure.",
+  "main": "lib/cjs/index.js",
+  "types": "lib/esm/index.d.ts",
+  "type": "commonjs",
+  "files": [
+    "lib"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "build": "rm -rf lib/ && npx prettier --write src/ && npm run build:cjs && npm run build:esm",
+    "build:cjs": "tsc --module commonjs --outDir lib/cjs",
+    "build:esm": "tsc --module esnext --outDir lib/esm",
+    "test": "jest",
+    "prepublishOnly": "npm run build"
   },
-  "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
-  },
+  "keywords": [],
+  "author": "lst97",
+  "license": "ISC",
   "devDependencies": {
+    "@lst97/common-response-structure": "^0.1.0-alpha.1",
+    "@types/node": "^20.12.4",
     "@types/react": "^18.2.74",
     "@types/react-dom": "^18.2.24",
     "@typescript-eslint/eslint-plugin": "^7.2.0",
     "@typescript-eslint/parser": "^7.2.0",
     "@vitejs/plugin-react-swc": "^3.5.0",
+    "axios": "^1.6.8",
     "eslint": "^8.57.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.6",
+    "joi": "^17.12.3",
+    "react-router-dom": "^6.22.3",
     "typescript": "^5.2.2",
-    "vite": "^5.2.0"
+    "vite": "^5.2.0",
+    "vite-plugin-dts": "^3.8.1"
   }
 }
