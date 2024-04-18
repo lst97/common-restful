@@ -1,14 +1,17 @@
 /* eslint-disable no-useless-catch */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NavigateFunction } from "react-router-dom";
-import axios, { AxiosResponse } from "axios";
+import { AxiosInstance, AxiosResponse } from "axios";
 import { BackendStandardResponse } from "@lst97/common-response-structure";
 import { InvalidApiResponseStructure } from "../errors/ApiErrors";
-import { apiConfig } from "../configs/ApiConfig";
-import { validateApiResponse } from "../validators/ApiValidator";
-import { AccessTokenService } from "./TokenService";
+import { ReactTokenServiceInstance } from "@lst97/common-services";
+import { injectable } from "inversify";
+import { inversifyContainer } from "../inversify.config";
 
-export class CommonApiErrorHandler implements IApiErrorHandler {
+export interface IApiErrorHandler {
+  handleError(error: any): void;
+}
+export class SnackbarApiErrorHandler implements IApiErrorHandler {
   private showSnackbar?: (message: string, severity: "error") => void;
 
   public handleError(error: any): void {
@@ -16,7 +19,6 @@ export class CommonApiErrorHandler implements IApiErrorHandler {
       this.handleServerError(error.response);
     }
   }
-
   public useSnackbar(
     showSnackbar: (message: string, severity: "error") => void,
   ) {
@@ -33,7 +35,7 @@ export class CommonApiErrorHandler implements IApiErrorHandler {
 export class ApiAuthenticationErrorHandler implements IApiErrorHandler {
   private navigate?: NavigateFunction;
   private showSnackbar?: (message: string, severity: "error") => void;
-  private redirectPath: string = "/login";
+  private redirectPath?: string;
 
   public handleError(error: any): void {
     if (error.response) {
@@ -56,8 +58,8 @@ export class ApiAuthenticationErrorHandler implements IApiErrorHandler {
     switch (response.status) {
       case 401:
       case 403:
-        AccessTokenService.removeToken();
-        if (this.navigate) {
+        ReactTokenServiceInstance().removeToken("accessToken");
+        if (this.navigate && this.redirectPath) {
           this.navigate(this.redirectPath, { replace: true });
         }
 
@@ -69,10 +71,8 @@ export class ApiAuthenticationErrorHandler implements IApiErrorHandler {
     }
   }
 }
-export interface IApiErrorHandler {
-  handleError(error: any): void;
-}
-class DefaultApiErrorHandler implements IApiErrorHandler {
+
+export class ConsoleLogApiErrorHandler implements IApiErrorHandler {
   public handleError(error: any): void {
     if (error instanceof InvalidApiResponseStructure) {
       console.log(error.message);
@@ -104,24 +104,33 @@ class DefaultApiErrorHandler implements IApiErrorHandler {
     }
   }
 }
-class ApiService {
-  private _axiosInstance;
 
-  constructor() {
-    this._axiosInstance = axios.create({
-      baseURL: `${apiConfig.baseUrl}`,
-    });
-  }
-
-  get AxiosInstance() {
-    return this._axiosInstance;
+export interface IApiService {
+  get(url: string, config?: any): Promise<BackendStandardResponse<any>>;
+  post(
+    url: string,
+    data: any,
+    config?: any,
+  ): Promise<BackendStandardResponse<any>>;
+  put(
+    url: string,
+    data: any,
+    config?: any,
+  ): Promise<BackendStandardResponse<any>>;
+  delete(url: string, config?: any): Promise<BackendStandardResponse<any>>;
+  axiosInstance: AxiosInstance;
+}
+@injectable() // TODO
+export class ApiService implements IApiService {
+  get axiosInstance() {
+    return inversifyContainer().get<AxiosInstance>("axios");
   }
 
   async get(url: string, config = {}) {
     try {
-      const response = validateApiResponse(
-        (await this._axiosInstance.get(url, config)).data,
-      );
+      const response = (
+        await inversifyContainer().get<AxiosInstance>("axios").get(url, config)
+      ).data;
       return response as BackendStandardResponse<any>;
     } catch (error) {
       throw error;
@@ -130,9 +139,12 @@ class ApiService {
 
   async post(url: string, data: any, config = {}) {
     try {
-      const response = validateApiResponse(
-        (await this._axiosInstance.post(url, data, config)).data,
-      );
+      const response = (
+        await inversifyContainer()
+          .get<AxiosInstance>("axios")
+          .post(url, data, config)
+      ).data;
+
       return response as BackendStandardResponse<any>;
     } catch (error) {
       throw error;
@@ -141,9 +153,11 @@ class ApiService {
 
   async put(url: string, data: any, config = {}) {
     try {
-      const response = validateApiResponse(
-        (await this._axiosInstance.put(url, data, config)).data,
-      );
+      const response = (
+        await inversifyContainer()
+          .get<AxiosInstance>("axios")
+          .put(url, data, config)
+      ).data;
 
       return response as BackendStandardResponse<any>;
     } catch (error) {
@@ -153,9 +167,12 @@ class ApiService {
 
   async delete(url: string, config = {}) {
     try {
-      const response = validateApiResponse(
-        (await this._axiosInstance.delete(url, config)).data,
-      );
+      const response = (
+        await inversifyContainer()
+          .get<AxiosInstance>("axios")
+          .delete(url, config)
+      ).data;
+
       return response as BackendStandardResponse<any>;
     } catch (error) {
       throw error;
@@ -163,76 +180,18 @@ class ApiService {
   }
 }
 
-// class ApiResultIndicator {
-//   public static showIndicator?: (
-//     isLoading: boolean,
-//     isSuccess: boolean,
-//   ) => void;
+export class ApiResultIndicator {
+  public static showIndicator?: (
+    isLoading: boolean,
+    isSuccess: boolean,
+  ) => void;
 
-//   public static useIndicator(
-//     showIndicator: (isLoading: boolean, isSuccess: boolean) => void,
-//   ) {
-//     this.showIndicator = showIndicator;
-//   }
-// }
-// example:
-// export class StaffApiService extends ApiResultIndicator {
-//     static async fetchStaffData(...errorHandlers: IApiErrorHandler[]) {
-//         try {
-//             const response = await apiService.get(
-//                 API_ENDPOINTS.fetchStaffsData
-//             );
+  public static useIndicator(
+    showIndicator: (isLoading: boolean, isSuccess: boolean) => void,
+  ) {
+    this.showIndicator = showIndicator;
+  }
+}
 
-//             return response.data as StaffData[];
-//         } catch (error) {
-//             defaultApiErrorHandler.handleError(error);
-//             for (const errorHandler of errorHandlers) {
-//                 errorHandler.handleError(error);
-//             }
-//             return [];
-//         }
-//     }
-
-//     static async createStaff(
-//         staff: StaffData,
-//         ...errorHandlers: IApiErrorHandler[]
-//     ) {
-//         const createStaffForm = new CreateStaffForm({
-//             staffName: staff.name,
-//             email: staff.email === '' ? undefined : staff.email,
-//             color: staff.color,
-//             phoneNumber:
-//                 staff.phoneNumber === '' ? undefined : staff.phoneNumber
-//         });
-
-//         try {
-//             if (this.showIndicator) {
-//                 this.showIndicator(true, false);
-//             }
-
-//             const response = await apiService.post(
-//                 API_ENDPOINTS.createStaff,
-//                 createStaffForm
-//             );
-
-//             if (this.showIndicator) {
-//                 this.showIndicator(false, true);
-//             }
-
-//             return response as BackendStandardResponse<StaffData>;
-//         } catch (error) {
-//             if (this.showIndicator) {
-//                 this.showIndicator(false, false);
-//             }
-
-//             defaultApiErrorHandler.handleError(error);
-//             for (const errorHandler of errorHandlers) {
-//                 errorHandler.handleError(error);
-//             }
-//             return null;
-//         }
-//     }
-// }
-
-export const apiService = new ApiService();
-export const defaultApiErrorHandler = new DefaultApiErrorHandler();
+export const ApiServiceInstance = () =>
+  inversifyContainer().get<IApiService>(ApiService);

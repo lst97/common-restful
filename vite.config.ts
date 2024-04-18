@@ -12,7 +12,7 @@ export default defineConfig({
   ],
   build: {
     lib: {
-      entry: path.resolve(__dirname, "src/index.ts"),
+      entry: path.resolve(__dirname, "index.ts"),
       name: "CommonRESTful", // Name for UMD build if needed
       fileName: (format) => `index.${format}.js`, // 'index.es.js', 'index.cjs.js'
     },
